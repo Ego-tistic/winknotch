@@ -1,0 +1,14 @@
+/artifacts/
+/tests/output/
+/.vs/
+/.idea/
+*.user
+*.suo
+*.pfx
+*.p12
+*.jks
+*.keystore
+.env
+.env.*
+Thumbs.db
+Desktop.ini
