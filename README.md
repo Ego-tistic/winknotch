@@ -32,6 +32,7 @@ Developed and tested on Windows 11. Other Windows versions have not been validat
 | Adjust volume | Mouse wheel over the island; dedicated scroll areas keep their normal behavior |
 | Switch tabs | Hold Shift and scroll |
 | Move the island | Enable an unlocked placement mode, then hold right-click for half a second and drag |
+| Rearrange dock apps | Hold an app for a moment, then drag it left or right. Release to save; Escape cancels. |
 | Recover a misplaced island | Ctrl+Alt+I by default; configurable in Settings |
 | Quit | Right-click and select Quit |
 
@@ -54,6 +55,7 @@ New-Item -ItemType Directory -Force tests/output | Out-Null
 powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File tests/check-themes.ps1
 powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File tests/check-settings-sliders.ps1
 powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File tests/check-windows-drawer.ps1
+powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File tests/check-dock-order.ps1
 ```
 
 These checks exercise theme contrast and persistence, slider geometry, button magnification, and restoration of an existing minimized window. Settings checks temporarily use the app's registry key and restore its original values afterward. Close the running app before testing.

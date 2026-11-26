@@ -25,7 +25,7 @@ using System.Windows.Threading;
 [assembly: System.Reflection.AssemblyProduct("WinKnotch")]
 [assembly: System.Reflection.AssemblyDescription("A customizable media island for Windows")]
 [assembly: System.Reflection.AssemblyVersion("0.1.0.0")]
-[assembly: System.Reflection.AssemblyFileVersion("0.1.0.0")]
+[assembly: System.Reflection.AssemblyFileVersion("0.1.0.3")]
 
 internal sealed class PlayerWindow : Window
 {
@@ -213,6 +213,13 @@ internal sealed class PlayerWindow : Window
     private ScrollViewer appScroll;
     private double appDrawerHeight = 354;
     private readonly HashSet<string> selectedApps = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    private readonly List<string> appOrder = new List<string>();
+    private DispatcherTimer dockHoldTimer;
+    private Button dockDragButton;
+    private bool dockReordering;
+    private bool dockChangingCapture;
+    private double dockGrabOffset, dockDragStartLeft, suppressAppClickUntil;
+    private int dockDragFrom, dockDragTo;
     private bool showAppTitles = true;
     private bool editingApps;
     private bool appsGrid = true;
@@ -805,6 +812,13 @@ internal sealed class PlayerWindow : Window
         double delta = Math.Min(playbackDelta, 0.05);
         if (appsDock && !editingApps && appScroll != null)
         {
+            if (dockReordering)
+            {
+                double pointer = Mouse.GetPosition(appScroll).X;
+                if (pointer < 25) dockScrollTarget -= 240 * delta;
+                else if (pointer > appScroll.ActualWidth - 25) dockScrollTarget += 240 * delta;
+                UpdateDockReorder();
+            }
             dockScrollTarget = Math.Max(0, Math.Min(appScroll.ScrollableWidth, dockScrollTarget));
             double offset = appScroll.HorizontalOffset;
             double next = offset + (dockScrollTarget - offset) * (1 - Math.Exp(-15 * delta));
@@ -1923,6 +1937,7 @@ internal sealed class PlayerWindow : Window
 
     private void RenderApps()
     {
+        if (dockDragButton != null) EndDockReorder(false);
         appRows.Children.Clear();
         dockRows.Children.Clear();
         bool dock = appsDock && !editingApps;
@@ -1940,7 +1955,7 @@ internal sealed class PlayerWindow : Window
         }
         string query = appSearch.Text.Trim();
         int count = 0;
-        foreach (AppEntry entry in appEntries)
+        foreach (AppEntry entry in OrderedApps())
         {
             if (entry.Name.IndexOf(query, StringComparison.CurrentCultureIgnoreCase) < 0) continue;
             if (!editingApps && !selectedApps.Contains(entry.Target)) continue;
@@ -1956,7 +1971,12 @@ internal sealed class PlayerWindow : Window
                 AutomationProperties.SetName(selection, "Show " + entry.Name);
                 selection.Click += delegate
                 {
-                    if (selection.IsChecked == true) selectedApps.Add(entry.Target); else selectedApps.Remove(entry.Target);
+                    if (selection.IsChecked == true)
+                    {
+                        selectedApps.Add(entry.Target);
+                        if (!appOrder.Contains(entry.Target)) appOrder.Add(entry.Target);
+                    }
+                    else selectedApps.Remove(entry.Target);
                     SaveSettings();
                 };
                 appRows.Children.Add(selection);
@@ -1964,6 +1984,7 @@ internal sealed class PlayerWindow : Window
             }
             var row = Control("Open " + entry.Name, entry.Name, delegate
             {
+                if (dockReordering || clock.Elapsed.TotalSeconds < suppressAppClickUntil) return;
                 try
                 {
                     if (!TryActivateRunningApp(entry)) Process.Start(new ProcessStartInfo(entry.Target) { UseShellExecute = true });
@@ -1985,8 +2006,11 @@ internal sealed class PlayerWindow : Window
             row.Margin = dock ? new Thickness(4, 2, 4, 2) : new Thickness(4, 3, 4, 3);
             row.ToolTip = entry.Name;
             row.Content = AppTile(entry, showAppTitles);
+            row.Tag = entry;
             if (dock)
             {
+                row.ToolTip = entry.Name + "\nHold and drag to rearrange";
+                AutomationProperties.SetHelpText(row, "Hold for a moment, then drag left or right to rearrange. Escape cancels.");
                 row.Background = Brushes.Transparent;
                 row.RenderTransformOrigin = new Point(0.5, 1);
                 var transforms = new TransformGroup();
@@ -1994,7 +2018,8 @@ internal sealed class PlayerWindow : Window
                 transforms.Children.Add(new TranslateTransform(0, 0));
                 row.RenderTransform = transforms;
                 row.MouseEnter += delegate { AnimateDockApp(row, true); };
-                row.MouseLeave += delegate { AnimateDockApp(row, false); };
+                row.MouseLeave += delegate { if (!dockReordering || dockDragButton != row) AnimateDockApp(row, false); };
+                EnableDockReordering(row);
                 dockRows.Children.Add(row);
             }
             else appRows.Children.Add(row);
@@ -2010,6 +2035,135 @@ internal sealed class PlayerWindow : Window
             appScroll.Height = dock ? (showAppTitles ? 109 : 89) : Math.Max(48, Math.Min(209, rows * rowHeight));
             double optionsHeight = editingApps ? 60 : 0;
             appDrawerHeight = 132 + appScroll.Height + optionsHeight + (chooseAppsButton != null && chooseAppsButton.Visibility == Visibility.Visible ? 36 : 0);
+        }
+    }
+
+    private List<AppEntry> OrderedApps()
+    {
+        var entries = new List<AppEntry>(appEntries);
+        if (editingApps) return entries;
+        entries.Sort(delegate(AppEntry a, AppEntry b)
+        {
+            int left = appOrder.IndexOf(a.Target), right = appOrder.IndexOf(b.Target);
+            int comparison = (left < 0 ? Int32.MaxValue : left).CompareTo(right < 0 ? Int32.MaxValue : right);
+            return comparison != 0 ? comparison : StringComparer.CurrentCultureIgnoreCase.Compare(a.Name, b.Name);
+        });
+        return entries;
+    }
+
+    private void EnableDockReordering(Button row)
+    {
+        row.PreviewMouseLeftButtonDown += delegate(object sender, MouseButtonEventArgs args)
+        {
+            if (dockDragButton != null) EndDockReorder(false);
+            dockDragButton = row;
+            dockDragStartLeft = System.Windows.Controls.Primitives.LayoutInformation.GetLayoutSlot(row).X + row.Margin.Left;
+            dockGrabOffset = args.GetPosition(dockRows).X - dockDragStartLeft;
+            dockDragFrom = dockDragTo = dockRows.Children.IndexOf(row);
+            dockHoldTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
+            dockHoldTimer.Tick += delegate
+            {
+                dockHoldTimer.Stop();
+                if (dockDragButton != row || Mouse.LeftButton != MouseButtonState.Pressed) { EndDockReorder(false); return; }
+                dockReordering = true;
+                dockChangingCapture = true;
+                row.ReleaseMouseCapture();
+                bool captured = row.CaptureMouse();
+                dockChangingCapture = false;
+                if (!captured) { EndDockReorder(false); return; }
+                row.Focus();
+                row.Cursor = Cursors.SizeAll;
+                row.Opacity = .8;
+                Panel.SetZIndex(row, 10);
+                appStatus.Text = "Drag to reorder · release to place";
+                UpdateDockReorder();
+            };
+            dockHoldTimer.Start();
+        };
+        row.PreviewMouseMove += delegate(object sender, MouseEventArgs args)
+        {
+            if (dockDragButton != row || !dockReordering) return;
+            UpdateDockReorder();
+            args.Handled = true;
+        };
+        row.PreviewMouseLeftButtonUp += delegate(object sender, MouseButtonEventArgs args)
+        {
+            if (dockDragButton != row) return;
+            bool dragging = dockReordering;
+            if (dragging) args.Handled = true;
+            EndDockReorder(dragging);
+        };
+        row.LostMouseCapture += delegate
+        {
+            if (dockReordering && dockDragButton == row && !dockChangingCapture) EndDockReorder(false);
+        };
+        row.PreviewKeyDown += delegate(object sender, KeyEventArgs args)
+        {
+            if (args.Key == Key.Escape && dockDragButton == row) { EndDockReorder(false); args.Handled = true; }
+        };
+    }
+
+    private void UpdateDockReorder()
+    {
+        if (!dockReordering || dockDragButton == null) return;
+        if (Mouse.LeftButton != MouseButtonState.Pressed) { EndDockReorder(false); return; }
+        double left = Mouse.GetPosition(dockRows).X - dockGrabOffset;
+        double step = dockDragButton.Width + dockDragButton.Margin.Left + dockDragButton.Margin.Right;
+        int target = Math.Max(0, Math.Min(dockRows.Children.Count - 1, (int)Math.Round((left - dockDragButton.Margin.Left) / step)));
+        var moving = (TranslateTransform)((TransformGroup)dockDragButton.RenderTransform).Children[1];
+        moving.BeginAnimation(TranslateTransform.XProperty, null);
+        moving.X = Clamp(left - dockDragStartLeft, -dockDragStartLeft, Math.Max(0, dockRows.ActualWidth - dockDragButton.Width) - dockDragStartLeft);
+        if (target == dockDragTo) return;
+        dockDragTo = target;
+        for (int i = 0; i < dockRows.Children.Count; i++)
+        {
+            if (i == dockDragFrom) continue;
+            var button = (Button)dockRows.Children[i];
+            var slide = (TranslateTransform)((TransformGroup)button.RenderTransform).Children[1];
+            double offset = i > dockDragFrom && i <= target ? -step : i < dockDragFrom && i >= target ? step : 0;
+            slide.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(offset, TimeSpan.FromMilliseconds(150))
+            { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+        }
+    }
+
+    private static void ReorderVisibleApps(List<string> order, List<string> visible, int from, int to)
+    {
+        if (from < 0 || to < 0 || from >= visible.Count || to >= visible.Count || from == to) return;
+        var visibleSet = new HashSet<string>(visible, StringComparer.OrdinalIgnoreCase);
+        string moved = visible[from];
+        visible.RemoveAt(from);
+        visible.Insert(to, moved);
+        int next = 0;
+        for (int i = 0; i < order.Count; i++) if (visibleSet.Contains(order[i])) order[i] = visible[next++];
+    }
+
+    private void EndDockReorder(bool commit)
+    {
+        if (dockHoldTimer != null) { dockHoldTimer.Stop(); dockHoldTimer = null; }
+        Button row = dockDragButton;
+        bool wasDragging = dockReordering;
+        dockDragButton = null;
+        dockReordering = false;
+        if (row == null) return;
+        if (wasDragging)
+        {
+            suppressAppClickUntil = clock.Elapsed.TotalSeconds + .25;
+            if (commit)
+            {
+                var full = new List<string>();
+                foreach (var entry in OrderedApps()) if (selectedApps.Contains(entry.Target)) full.Add(entry.Target);
+                var visible = new List<string>();
+                foreach (Button button in dockRows.Children) visible.Add(((AppEntry)button.Tag).Target);
+                ReorderVisibleApps(full, visible, dockDragFrom, dockDragTo);
+                appOrder.Clear();
+                appOrder.AddRange(full);
+                SaveSettings();
+            }
+            row.ReleaseMouseCapture();
+            double offset = appScroll.HorizontalOffset;
+            RenderApps();
+            dockScrollTarget = offset;
+            appScroll.ScrollToHorizontalOffset(offset);
         }
     }
 
@@ -3158,6 +3312,8 @@ internal sealed class PlayerWindow : Window
                 appListChoice.IsChecked = !appsGrid && !appsDock;
                 appDockChoice.IsChecked = appsDock;
                 foreach (string app in key.GetValue("SelectedApps", new string[0]) as string[] ?? new string[0]) selectedApps.Add(app);
+                foreach (string app in key.GetValue("AppOrder", new string[0]) as string[] ?? new string[0])
+                    if (!appOrder.Contains(app)) appOrder.Add(app);
                 appTitlesToggle.IsChecked = showAppTitles;
                 recoveryModifiers = (uint)((int)key.GetValue("RecoveryModifiers", 3) & 15);
                 recoveryKey = (uint)(int)key.GetValue("RecoveryKey", 0x49);
@@ -3185,6 +3341,7 @@ internal sealed class PlayerWindow : Window
                 var selected = new string[selectedApps.Count];
                 selectedApps.CopyTo(selected);
                 key.SetValue("SelectedApps", selected, Microsoft.Win32.RegistryValueKind.MultiString);
+                key.SetValue("AppOrder", appOrder.ToArray(), Microsoft.Win32.RegistryValueKind.MultiString);
                 key.SetValue("Opacity", (int)Math.Round(glassOpacity * 100));
                 key.SetValue("PlacementMode", (int)placementMode);
                 key.SetValue("HideAutomatically", hideAutomatically ? 1 : 0);
