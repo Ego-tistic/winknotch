@@ -1,0 +1,30 @@
+name: macOS build
+on:
+  push:
+    paths:
+      - 'macos/**'
+      - '.github/workflows/macos.yml'
+  pull_request:
+    paths:
+      - 'macos/**'
+      - '.github/workflows/macos.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build Intel and Apple silicon app
+        run: bash macos/build.sh
+      - name: Check model behavior
+        run: macos/build/WinKnotch.app/Contents/MacOS/WinKnotch --self-test
+      - name: Check AppKit launch
+        run: macos/build/WinKnotch.app/Contents/MacOS/WinKnotch --smoke-test
+      - name: Upload universal macOS app
+        uses: actions/upload-artifact@v4
+        with:
+          name: WinKnotch-macOS
+          path: macos/build/WinKnotch-macOS.zip
+          if-no-files-found: error
