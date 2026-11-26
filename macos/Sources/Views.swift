@@ -379,8 +379,15 @@ final class ColorBlockNSView: NSView {
         let c = color.usingColorSpace(.sRGB) ?? .white
         let value = c.brightnessComponent
         let width = 128, height = 50
-        guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: width * 4, bitsPerPixel: 32) else { return }
-        for y in 0..<height { for x in 0..<width { bitmap.setColor(NSColor.hsv(CGFloat(x) / CGFloat(width), saturation: 1 - CGFloat(y) / CGFloat(height - 1), brightness: value), atX: x, y: y) } }
+        guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: width * 4, bitsPerPixel: 32), let pixels = bitmap.bitmapData else { return }
+        for y in 0..<height { for x in 0..<width {
+            let color = NSColor.hsv(CGFloat(x) / CGFloat(width), saturation: 1 - CGFloat(y) / CGFloat(height - 1), brightness: value)
+            let offset = y * bitmap.bytesPerRow + x * 4
+            pixels[offset] = UInt8((color.redComponent * 255).rounded())
+            pixels[offset + 1] = UInt8((color.greenComponent * 255).rounded())
+            pixels[offset + 2] = UInt8((color.blueComponent * 255).rounded())
+            pixels[offset + 3] = 255
+        } }
         bitmap.draw(in: bounds)
         let point = NSPoint(x: c.hueComponent * bounds.width, y: c.saturationComponent * bounds.height)
         let circle = NSBezierPath(ovalIn: NSRect(x: point.x - 5, y: point.y - 5, width: 10, height: 10))
