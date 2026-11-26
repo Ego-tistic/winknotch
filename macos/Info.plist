@@ -10,6 +10,12 @@
 <key>CFBundleVersion</key><string>1</string>
 <key>LSMinimumSystemVersion</key><string>12.0</string>
 <key>LSUIElement</key><true/>
+<key>LSMultipleInstancesProhibited</key><true/>
 <key>NSHighResolutionCapable</key><true/>
+<key>UTExportedTypeDeclarations</key><array><dict>
+<key>UTTypeIdentifier</key><string>io.github.ego-tistic.winknotch.dock-app</string>
+<key>UTTypeDescription</key><string>WinKnotch dock application</string>
+<key>UTTypeConformsTo</key><array><string>public.data</string></array>
+</dict></array>
 <key>NSAppleEventsUsageDescription</key><string>WinKnotch reads track information, album artwork, and playback state from the music players you connect, and sends the controls you choose.</string>
 </dict></plist>
