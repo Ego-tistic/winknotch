@@ -161,10 +161,10 @@ struct MediaPage: View {
                 IslandButton(title: "", symbol: "forward.end.fill") { model.command("next track") }
             }.disabled(model.track == nil)
             VStack(spacing: 0) {
-                Slider(value: $model.position, in: 0...max(1, model.track?.duration ?? 1), onEditingChanged: { editing in model.seeking = editing; if !editing { model.seek() } }).disabled(model.track == nil)
+                IslandSlider(value: $model.position, in: 0...max(1, model.track?.duration ?? 1), onEditingChanged: { editing in model.seeking = editing; if !editing { model.seek() } }).disabled(model.track == nil)
                 HStack { Text(IslandModel.duration(model.position)); Spacer(); Text(IslandModel.duration(model.track?.duration ?? 0)) }.font(.system(size: 9, design: .monospaced)).foregroundColor(model.secondary)
             }
-            HStack { Image(systemName: model.volume == 0 ? "speaker.slash.fill" : model.volume < 50 ? "speaker.wave.1.fill" : "speaker.wave.3.fill"); Slider(value: $model.volume, in: 0...100, onEditingChanged: { if !$0 { model.setVolume() } }) }.font(.system(size: 11))
+            HStack { Image(systemName: model.volume == 0 ? "speaker.slash.fill" : model.volume < 50 ? "speaker.wave.1.fill" : "speaker.wave.3.fill"); IslandSlider(value: $model.volume, in: 0...100, onEditingChanged: { if !$0 { model.setVolume() } }) }.font(.system(size: 11))
             if model.track == nil {
                 HStack(spacing: 12) {
                     Button("Connect Music") { model.connect(Players.music) }; Button("Connect Spotify") { model.connect(Players.spotify) }
@@ -196,7 +196,7 @@ struct ClockPage: View {
     var body: some View {
         VStack(spacing: 12) {
             if let ringing = model.ringing { Text(ringing).font(.headline); Button("Dismiss alarm", action: model.dismiss) }
-            Picker("Clock tool", selection: $model.tool) { ForEach(ClockTool.allCases, id: \.self) { Text($0.rawValue).tag($0) } }.pickerStyle(.segmented).onChange(of: model.tool) { _ in model.resize?() }
+            Picker("Clock tool", selection: $model.tool) { ForEach(ClockTool.allCases, id: \.self) { Text($0.rawValue).tag($0) } }.pickerStyle(.segmented).labelsHidden().onChange(of: model.tool) { _ in model.resize?() }
             switch model.tool {
             case .clock:
                 Text(model.clockText).font(.system(size: 35, weight: .medium, design: .rounded)).monospacedDigit().minimumScaleFactor(0.7).lineLimit(1)
@@ -275,7 +275,7 @@ struct AppsPage: View {
                 IslandButton(title: "", symbol: "slider.horizontal.3") { model.editingApps.toggle(); model.resize?() }
             }
             if model.editingApps {
-                Picker("Layout", selection: $model.appLayout) { ForEach(["Dock", "Grid", "List"], id: \.self) { Text($0) } }.pickerStyle(.segmented)
+                Picker("Layout", selection: $model.appLayout) { ForEach(["Dock", "Grid", "List"], id: \.self) { Text($0) } }.pickerStyle(.segmented).labelsHidden()
                 Toggle("Show app names", isOn: $model.showAppNames).font(.caption)
                 ScrollView { VStack(spacing: 7) { ForEach(model.apps, id: \.self) { path in HStack { Text(model.appName(path)).lineLimit(1); Spacer(); Button { model.apps.removeAll { $0 == path }; model.save() } label: { Image(systemName: "minus.circle") }.buttonStyle(.plain) } } } }
                 Button("Add applications…", action: model.addApps)
@@ -307,9 +307,9 @@ struct SettingsPage: View {
                     Picker("Theme", selection: $model.theme) { ForEach(["Dark", "Light", "Custom"], id: \.self) { Text($0) } }.pickerStyle(.segmented)
                     if model.theme == "Custom" { ColorBlockPicker(color: $model.customColor) }
                     Text("Opacity  \(Int(model.opacity * 100))%").font(.caption)
-                    Slider(value: $model.opacity, in: 0...1)
+                    IslandSlider(value: $model.opacity, in: 0...1)
                     Text("Island size  \(Int(model.scale * 100))%").font(.caption)
-                    Slider(value: $model.scale, in: 0.6...1.5)
+                    IslandSlider(value: $model.scale, in: 0.6...1.5)
                 }
                 section("Position") {
                     Picker("Placement", selection: $model.placement) { ForEach(["Top", "Bottom", "Floating"], id: \.self) { Text($0) } }
@@ -355,7 +355,7 @@ struct ColorBlockPicker: View {
     var body: some View {
         VStack(spacing: 7) {
             ColorBlockRepresentable(color: $color).frame(height: 105).clipShape(RoundedRectangle(cornerRadius: 7))
-            HStack { Text("Brightness").font(.caption); Slider(value: $brightness, in: 0...1).onChange(of: brightness) { value in
+            HStack { Text("Brightness").font(.caption); IslandSlider(value: $brightness, in: 0...1).onChange(of: brightness) { value in
                 guard let c = NSColor(color).usingColorSpace(.sRGB) else { return }
                 color = Color(NSColor(calibratedHue: c.hueComponent, saturation: c.saturationComponent, brightness: value, alpha: 1))
             } }
