@@ -23,7 +23,7 @@ final class MacApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var hidden = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        panel.title = "WinKnotch"
+        panel.title = RuntimeProfile.name
         panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = false
         panel.level = .statusBar; panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
@@ -33,7 +33,7 @@ final class MacApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.recover = { [weak self] in self?.findIsland() }
         menuBar()
         position(animated: false); panel.orderFrontRegardless(); model.start()
-        timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in self?.tick() }
+        timer = Timer(timeInterval: RuntimeProfile.timerInterval, repeats: true) { [weak self] _ in self?.tick() }
         RunLoop.main.add(timer!, forMode: .common)
         NotificationCenter.default.addObserver(self, selector: #selector(screensChanged), name: NSApplication.didChangeScreenParametersNotification, object: nil)
         globalClick = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in self?.outsideClick() }
@@ -52,7 +52,7 @@ final class MacApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func menuBar() {
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        status?.button?.image = NSImage(systemSymbolName: "waveform", accessibilityDescription: "WinKnotch")
+        status?.button?.image = NSImage(systemSymbolName: "waveform", accessibilityDescription: RuntimeProfile.name)
         let menu = NSMenu()
         func item(_ name: String, _ selector: Selector, key: String = "") { let item = menu.addItem(withTitle: name, action: selector, keyEquivalent: key); item.target = self }
         item("Find & re-center island", #selector(findIsland))
@@ -63,7 +63,7 @@ final class MacApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         for (index, screen) in NSScreen.screens.enumerated() { let item = screens.addItem(withTitle: screen.localizedName, action: #selector(selectScreen(_:)), keyEquivalent: ""); item.tag = index; item.target = self }
         let move = menu.addItem(withTitle: "Move to display", action: nil, keyEquivalent: ""); move.submenu = screens
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit WinKnotch", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(withTitle: "Quit \(RuntimeProfile.name)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         status?.menu = menu
     }
     var screen: NSScreen? {
@@ -88,7 +88,7 @@ final class MacApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         frameRevision += 1; let revision = frameRevision
         changingFrame = true
         let frame = expectedFrame()
-        if animated {
+        if animated && !RuntimeProfile.lite {
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = model.expanded ? 0.46 : 0.36
                 context.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 0.05, 0.18, 1)
@@ -178,6 +178,11 @@ func selfTest() {
     check(IslandModel.duration(-1) == "00:00:00", "Negative duration")
     check(NSColor(hex: "#28959A")?.hex == "#28959A", "Hex color round trip")
     check(NSColor(hex: "invalid") == nil, "Invalid hex color")
+    if RuntimeProfile.lite {
+        check(RuntimeProfile.pollInterval(playing: false, expanded: false) == 5, "Lite idle polling")
+        check(RuntimeProfile.uiInterval(stopwatch: false, expandedMedia: false) == 1, "Lite idle UI refresh")
+        check(RuntimeProfile.waveInterval == 0.25, "Lite visualizer frame rate")
+    }
     let teal = NSColor(hex: "#28959A")!.usingColorSpace(.sRGB)!
     check(NSColor.hsv(teal.hueComponent, saturation: teal.saturationComponent, brightness: teal.brightnessComponent).hex == "#28959A", "Color block HSV round trip")
     let model = IslandModel()

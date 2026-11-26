@@ -55,6 +55,7 @@ final class IslandModel: ObservableObject {
     private let queue = DispatchQueue(label: "io.winknotch.media", qos: .utility)
     private var polling = false
     private var nextPoll = Date.distantPast
+    private var nextUIUpdate = Date.distantPast
     private var observed = Date()
     private var trackPosition = 0.0
     private var previouslyPlaying = Set<String>()
@@ -66,10 +67,18 @@ final class IslandModel: ObservableObject {
 
     init() {
         let d = UserDefaults.standard
+        if RuntimeProfile.lite && !d.bool(forKey: "litePreferencesImported") && !CommandLine.arguments.contains("--self-test") && !CommandLine.arguments.contains("--render-previews") {
+            if let previous = UserDefaults(suiteName: "io.github.ego-tistic.winknotch") {
+                for key in ["apps", "theme", "customColor", "scale", "militaryTime", "autoHide", "placement", "appLayout", "showAppNames", "sound", "players"] {
+                    if d.object(forKey: key) == nil, let value = previous.object(forKey: key) { d.set(value, forKey: key) }
+                }
+            }
+            d.set(true, forKey: "litePreferencesImported")
+        }
         apps = d.stringArray(forKey: "apps") ?? []
         theme = d.string(forKey: "theme") ?? "Dark"
         customColor = Color(NSColor(hex: d.string(forKey: "customColor") ?? "#526D9A") ?? .systemBlue)
-        opacity = d.object(forKey: "opacity") as? Double ?? 0.92
+        opacity = d.object(forKey: "opacity") as? Double ?? (RuntimeProfile.lite ? 1 : 0.92)
         scale = d.object(forKey: "scale") as? Double ?? 1
         militaryTime = d.bool(forKey: "militaryTime")
         autoHide = d.bool(forKey: "autoHide")
@@ -107,7 +116,7 @@ final class IslandModel: ObservableObject {
     var compactWidth: CGFloat { ringing != nil ? 244 : countdownEnd != nil ? 196 : compactClock ? 206 : 190 }
 
     func start() {
-        ticker = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in self?.tick() }
+        ticker = Timer(timeInterval: RuntimeProfile.timerInterval, repeats: true) { [weak self] _ in self?.tick() }
         RunLoop.main.add(ticker!, forMode: .common)
         if #available(macOS 13, *) { loginEnabled = SMAppService.mainApp.status == .enabled }
         queue.async {
@@ -128,20 +137,25 @@ final class IslandModel: ObservableObject {
     func setExpanded(_ value: Bool) {
         guard value != expanded else { return }
         if value && track?.playing == true { page = .media }
-        withAnimation(.easeInOut(duration: 0.38)) { expanded = value }
+        withAnimation(RuntimeProfile.lite ? nil : .easeInOut(duration: 0.38)) { expanded = value }
         if !value { tabsOpen = false; editingApps = false; if page == .settings { page = track?.playing == true ? .media : .clock } }
         resize?()
     }
     func select(_ value: IslandPage) { page = value; expanded = true; resize?() }
     private func tick() {
-        now = Date()
-        if !seeking, let track = track { position = min(track.duration, trackPosition + (track.playing ? now.timeIntervalSince(observed) : 0)) }
-        if let end = countdownEnd, now >= end { countdownEnd = nil; ring("Timer finished") }
-        if let end = wakeDate, now >= end { wakeDate = nil; ring("Wake-up alarm") }
-        if ringing != nil && now.timeIntervalSince(ringStarted) >= 180 { dismiss() }
+        let current = Date()
+        if current >= nextUIUpdate {
+            now = current
+            let interval = RuntimeProfile.uiInterval(stopwatch: expanded && page == .clock && tool == .stopwatch && stopwatchStart != nil, expandedMedia: expanded && page == .media)
+            nextUIUpdate = interval > 0 ? Date(timeIntervalSince1970: (floor(current.timeIntervalSince1970 / interval) + 1) * interval) : .distantPast
+            if !seeking, let track = track { position = min(track.duration, trackPosition + (track.playing ? current.timeIntervalSince(observed) : 0)) }
+        }
+        if let end = countdownEnd, current >= end { countdownEnd = nil; ring("Timer finished") }
+        if let end = wakeDate, current >= end { wakeDate = nil; ring("Wake-up alarm") }
+        if ringing != nil && current.timeIntervalSince(ringStarted) >= 180 { dismiss() }
         if CommandLine.arguments.contains("--render-previews") { return }
-        guard !polling, now >= nextPoll else { return }
-        nextPoll = now.addingTimeInterval(1)
+        guard !polling, current >= nextPoll else { return }
+        nextPoll = current.addingTimeInterval(RuntimeProfile.pollInterval(playing: track?.playing == true, expanded: expanded && page == .media))
         let active = Players.all.filter { enabledPlayers.contains($0) && !NSRunningApplication.runningApplications(withBundleIdentifier: $0).isEmpty }
         guard !active.isEmpty else { if track != nil { track = nil; artwork = nil }; return }
         polling = true
@@ -174,8 +188,18 @@ final class IslandModel: ObservableObject {
     }
     private func acceptArt(_ image: NSImage?, key: String) {
         guard key == track?.key else { return }
-        artwork = image
-        if let data = image?.tiffRepresentation, let bitmap = NSBitmapImageRep(data: data), bitmap.pixelsWide > 0, bitmap.pixelsHigh > 0 {
+        var displayImage = image
+        if RuntimeProfile.lite, let image = image, max(image.size.width, image.size.height) > 128 {
+            let factor = 128 / max(image.size.width, image.size.height)
+            let size = NSSize(width: image.size.width * factor, height: image.size.height * factor)
+            let thumbnail = NSImage(size: size)
+            thumbnail.lockFocus()
+            image.draw(in: NSRect(origin: .zero, size: size), from: .zero, operation: .copy, fraction: 1)
+            thumbnail.unlockFocus()
+            displayImage = thumbnail
+        }
+        artwork = displayImage
+        if let data = displayImage?.tiffRepresentation, let bitmap = NSBitmapImageRep(data: data), bitmap.pixelsWide > 0, bitmap.pixelsHigh > 0 {
             var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, count: CGFloat = 0
             for y in stride(from: 0, to: bitmap.pixelsHigh, by: max(1, bitmap.pixelsHigh / 16)) {
                 for x in stride(from: 0, to: bitmap.pixelsWide, by: max(1, bitmap.pixelsWide / 16)) {
@@ -206,14 +230,16 @@ final class IslandModel: ObservableObject {
         app.activate(options: [.activateAllWindows, .activateIgnoringOtherApps]); setExpanded(false)
     }
     func toggleStopwatch() {
-        if let start = stopwatchStart { stopwatchElapsed += now.timeIntervalSince(start); stopwatchStart = nil }
-        else { stopwatchStart = now }
+        let current = Date(); now = current
+        if let start = stopwatchStart { stopwatchElapsed += current.timeIntervalSince(start); stopwatchStart = nil }
+        else { stopwatchStart = current }
     }
     func startTimer() {
         let hours = min(99, max(0, Int(timerHours) ?? 0)), minutes = min(59, max(0, Int(timerMinutes) ?? 0)), seconds = min(59, max(0, Int(timerSeconds) ?? 0))
         let total = hours * 3600 + minutes * 60 + seconds
         guard total > 0 else { notice = "Choose a duration greater than zero."; return }
-        countdownEnd = Date().addingTimeInterval(Double(total)); notice = ""; dismiss()
+        let start = Date(); now = start
+        countdownEnd = start.addingTimeInterval(Double(total)); notice = ""; dismiss()
     }
     func setWake() {
         let components = DateComponents(hour: min(23, max(0, Int(wakeHours) ?? 0)), minute: min(59, max(0, Int(wakeMinutes) ?? 0)), second: min(59, max(0, Int(wakeSeconds) ?? 0)))

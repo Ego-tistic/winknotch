@@ -38,7 +38,7 @@ struct IslandButton: View {
                 .frame(minWidth: 18, minHeight: 20).padding(.horizontal, prominent ? 12 : 7).padding(.vertical, 5)
                 .background(Color.primary.opacity(hover ? 0.16 : 0.08)).cornerRadius(9)
         }.buttonStyle(.plain).scaleEffect(hover ? 1.10 : 1)
-            .animation(.easeOut(duration: 0.18), value: hover).onHover { hover = $0 }
+            .animation(RuntimeProfile.lite ? nil : .easeOut(duration: 0.18), value: hover).onHover { hover = $0 }
             .help(title.isEmpty ? symbol : title)
     }
 }
@@ -57,7 +57,7 @@ struct AlbumArt: View {
 struct MusicWaves: View {
     @ObservedObject var model: IslandModel
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20, paused: model.track?.playing != true)) { context in
+        TimelineView(.animation(minimumInterval: RuntimeProfile.waveInterval, paused: model.track?.playing != true)) { context in
             HStack(alignment: .center, spacing: 2) {
                 ForEach(0..<12) { index in
                     let phase = context.date.timeIntervalSinceReferenceDate * 6 - Double(index) * 0.65
@@ -74,9 +74,9 @@ struct IslandRoot: View {
     var joined: Bool { !model.expanded && model.placement == "Top" }
     var body: some View {
         ZStack {
-            GlassMaterial().opacity(model.opacity)
+            if !RuntimeProfile.lite { GlassMaterial().opacity(model.opacity) }
             Color(model.tint).opacity(model.opacity)
-            if model.expanded && model.page == .media, let image = model.artwork {
+            if !RuntimeProfile.lite && model.expanded && model.page == .media, let image = model.artwork {
                 GeometryReader { geometry in Image(nsImage: image).resizable().scaledToFill().frame(width: geometry.size.width, height: geometry.size.height).blur(radius: 12).opacity(0.30).clipped() }
             }
             if model.expanded {
@@ -303,6 +303,7 @@ struct SettingsPage: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Settings").font(.system(size: 20, weight: .semibold))
+                if RuntimeProfile.lite { Text("Lite · reduced effects and background activity").font(.caption).foregroundColor(model.secondary) }
                 section("Appearance") {
                     Picker("Theme", selection: $model.theme) { ForEach(["Dark", "Light", "Custom"], id: \.self) { Text($0) } }.pickerStyle(.segmented)
                     if model.theme == "Custom" { ColorBlockPicker(color: $model.customColor) }

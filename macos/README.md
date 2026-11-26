@@ -19,6 +19,23 @@ open build/WinKnotch.app
 
 The script also creates `build/WinKnotch-macOS.zip`. Copy WinKnotch.app to Applications before enabling Start at Login. It is ad-hoc signed for local testing, not Developer ID signed or notarized.
 
+## Lightweight build
+
+For older Macs, build the separate **WinKnotch Lite** application:
+
+```sh
+bash build.sh --lite
+open "build/WinKnotch Lite.app"
+```
+
+This creates `build/WinKnotch-Lite-macOS.zip`, also universal for Intel and Apple silicon.
+
+Lite keeps media controls, artwork thumbnails, the clock tools, alarms, the app drawer, and color settings. It removes live background blur and the diffused artwork wash, skips window-resize animations, limits the visualizer to four updates per second, and refreshes the idle UI once a second. Player polling is every five seconds while idle, or every 1.5–2.5 seconds while music plays; explicit playback commands trigger an immediate refresh. It also caps displayed artwork to a 128-point thumbnail.
+
+Quit the regular version before launching Lite so both versions do not run together. Lite imports your existing app choices and appearance settings once, and then saves its settings separately. It starts at full opacity. macOS may ask you to approve Music/Spotify Automation again for the new app identity. If you use Start at Login, disable it in the regular app before enabling it in Lite.
+
+These changes reduce rendering and polling work; CPU and memory use still need to be measured on the target Mac.
+
 ## Connect your music
 
 Use the waveform menu-bar icon to choose **Connect Apple Music** or **Connect Spotify**. Approve macOS Automation access when prompted. Only players you connect are queried. Player permissions can be changed under Privacy & Security → Automation.
