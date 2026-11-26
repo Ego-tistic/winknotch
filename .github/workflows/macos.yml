@@ -1,0 +1,49 @@
+name: macOS build
+on:
+  push:
+    paths:
+      - 'macos/**'
+      - '.github/workflows/macos.yml'
+  pull_request:
+    paths:
+      - 'macos/**'
+      - '.github/workflows/macos.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    name: ${{ matrix.variant }}
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: standard
+            args: ''
+            app: WinKnotch
+            archive: WinKnotch-macOS.zip
+            artifact: WinKnotch-macOS
+          - variant: lite
+            args: '--lite'
+            app: WinKnotch Lite
+            archive: WinKnotch-Lite-macOS.zip
+            artifact: WinKnotch-Lite-macOS
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build Intel and Apple silicon app
+        run: bash macos/build.sh ${{ matrix.args }}
+      - name: Check model behavior
+        run: '"macos/build/${{ matrix.app }}.app/Contents/MacOS/WinKnotch" --self-test'
+      - name: Check AppKit launch
+        run: '"macos/build/${{ matrix.app }}.app/Contents/MacOS/WinKnotch" --smoke-test'
+      - name: Render native interface previews
+        run: '"macos/build/${{ matrix.app }}.app/Contents/MacOS/WinKnotch" --render-previews'
+      - name: Upload universal macOS app
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            macos/build/${{ matrix.archive }}
+            macos/build/previews/*.png
+          if-no-files-found: error

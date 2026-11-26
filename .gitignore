@@ -1,5 +1,6 @@
 /artifacts/
 /tests/output/
+/macos/build/
 /.vs/
 /.idea/
 *.user
