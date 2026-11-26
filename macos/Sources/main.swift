@@ -6,6 +6,9 @@ final class IslandPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 }
+final class IslandHostingView: NSHostingView<IslandRoot> {
+    override var mouseDownCanMoveWindow: Bool { true }
+}
 
 final class MacApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let model = IslandModel()
@@ -25,7 +28,7 @@ final class MacApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel.level = .statusBar; panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         panel.delegate = self
-        panel.contentView = NSHostingView(rootView: IslandRoot(model: model))
+        panel.contentView = IslandHostingView(rootView: IslandRoot(model: model))
         model.resize = { [weak self] in self?.position(animated: true) }
         model.recover = { [weak self] in self?.findIsland() }
         menuBar()
@@ -44,6 +47,7 @@ final class MacApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if CommandLine.arguments.contains("--smoke-test") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) { print("AppKit launch smoke test passed"); NSApp.terminate(nil) }
         }
+        if CommandLine.arguments.contains("--render-previews") { renderPreviews(index: 0) }
     }
 
     func menuBar() {
@@ -93,6 +97,7 @@ final class MacApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         } else { panel.setFrame(frame, display: true); changingFrame = false }
     }
     func tick() {
+        if CommandLine.arguments.contains("--render-previews") { return }
         let mouse = NSEvent.mouseLocation
         let inside = panel.frame.insetBy(dx: -5, dy: -3).contains(mouse)
         if inside { lastInside = Date() }
@@ -122,6 +127,39 @@ final class MacApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc func settings() { model.setExpanded(true); model.select(.settings); panel.makeKeyAndOrderFront(nil) }
     @objc func connectMusic() { model.connect(Players.music) }
     @objc func connectSpotify() { model.connect(Players.spotify) }
+    func renderPreviews(index: Int) {
+        let names = ["media", "settings-light", "settings-custom", "clock", "timer", "apps"]
+        guard index < names.count else { print("Native previews rendered"); NSApp.terminate(nil); return }
+        model.expanded = true; model.tabsOpen = false; model.theme = "Dark"; model.scale = 1; model.opacity = 1
+        model.track = nil; model.artwork = nil
+        switch index {
+        case 0:
+            model.page = .media
+            model.track = PlayingTrack(app: Players.music, title: "WinKnotch for Mac", artist: "Native media island preview", playing: false, position: 65, duration: 240, artworkURL: "")
+            model.position = 65
+            let image = NSImage(size: NSSize(width: 256, height: 256))
+            image.lockFocus()
+            NSGradient(starting: NSColor(srgbRed: 0.20, green: 0.48, blue: 0.88, alpha: 1), ending: NSColor(srgbRed: 0.63, green: 0.28, blue: 0.74, alpha: 1))?.draw(in: NSRect(x: 0, y: 0, width: 256, height: 256), angle: 35)
+            image.unlockFocus(); model.artwork = image
+        case 1: model.page = .settings; model.theme = "Light"
+        case 2: model.page = .settings; model.theme = "Custom"; model.customColor = Color(NSColor(hex: "#28959A")!); model.opacity = 0.75
+        case 3: model.page = .clock; model.tool = .clock
+        case 4: model.page = .clock; model.tool = .timer; model.countdownEnd = Date().addingTimeInterval(120)
+        default: model.page = .apps; model.appLayout = "Dock"; model.editingApps = false; model.apps = ["/System/Applications/Calculator.app", "/System/Applications/Notes.app", "/System/Applications/Calendar.app"]
+        }
+        position(animated: false)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+            let folder = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("macos/build/previews")
+            do {
+                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                if let view = self.panel.contentView, let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                    view.cacheDisplay(in: view.bounds, to: bitmap)
+                    if let data = bitmap.representation(using: .png, properties: [:]) { try data.write(to: folder.appendingPathComponent(names[index] + ".png")) }
+                }
+            } catch { FileHandle.standardError.write(Data("Preview export failed: \(error)\n".utf8)) }
+            self.renderPreviews(index: index + 1)
+        }
+    }
     func applicationWillTerminate(_ notification: Notification) {
         timer?.invalidate(); model.dismiss()
         for monitor in [globalClick, localClick, globalUp, localUp, localKey] { if let monitor = monitor { NSEvent.removeMonitor(monitor) } }

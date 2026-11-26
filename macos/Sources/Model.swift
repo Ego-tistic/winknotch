@@ -97,7 +97,7 @@ final class IslandModel: ObservableObject {
     var selectedApps: [String] { apps.filter { search.isEmpty || appName($0).localizedCaseInsensitiveContains(search) } }
     var pageHeight: CGFloat {
         switch page {
-        case .media: return 246
+        case .media: return 270
         case .clock: return tool == .clock ? 186 : 280
         case .apps: return appLayout == "Dock" && !editingApps ? 192 : 330
         case .settings: return 470
@@ -116,6 +116,7 @@ final class IslandModel: ObservableObject {
         }
     }
     func save() {
+        if CommandLine.arguments.contains("--render-previews") || CommandLine.arguments.contains("--self-test") { return }
         let d = UserDefaults.standard
         d.set(apps, forKey: "apps"); d.set(theme, forKey: "theme")
         d.set(NSColor(customColor).hex, forKey: "customColor"); d.set(opacity, forKey: "opacity")
@@ -138,6 +139,7 @@ final class IslandModel: ObservableObject {
         if let end = countdownEnd, now >= end { countdownEnd = nil; ring("Timer finished") }
         if let end = wakeDate, now >= end { wakeDate = nil; ring("Wake-up alarm") }
         if ringing != nil && now.timeIntervalSince(ringStarted) >= 180 { dismiss() }
+        if CommandLine.arguments.contains("--render-previews") { return }
         guard !polling, now >= nextPoll else { return }
         nextPoll = now.addingTimeInterval(1)
         let active = Players.all.filter { enabledPlayers.contains($0) && !NSRunningApplication.runningApplications(withBundleIdentifier: $0).isEmpty }

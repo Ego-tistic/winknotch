@@ -22,9 +22,13 @@ jobs:
         run: macos/build/WinKnotch.app/Contents/MacOS/WinKnotch --self-test
       - name: Check AppKit launch
         run: macos/build/WinKnotch.app/Contents/MacOS/WinKnotch --smoke-test
+      - name: Render native interface previews
+        run: macos/build/WinKnotch.app/Contents/MacOS/WinKnotch --render-previews
       - name: Upload universal macOS app
         uses: actions/upload-artifact@v4
         with:
           name: WinKnotch-macOS
-          path: macos/build/WinKnotch-macOS.zip
+          path: |
+            macos/build/WinKnotch-macOS.zip
+            macos/build/previews/*.png
           if-no-files-found: error
