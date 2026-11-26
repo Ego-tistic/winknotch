@@ -6,7 +6,7 @@ final class IslandPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 }
-final class IslandHostingView: NSHostingView<IslandRoot> {
+final class IslandHostingView: NSHostingView<ScaledIslandRoot> {
     override var mouseDownCanMoveWindow: Bool { true }
 }
 
@@ -28,7 +28,7 @@ final class MacApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel.level = .statusBar; panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         panel.delegate = self
-        panel.contentView = IslandHostingView(rootView: IslandRoot(model: model))
+        panel.contentView = IslandHostingView(rootView: ScaledIslandRoot(model: model))
         model.resize = { [weak self] in self?.position(animated: true) }
         model.recover = { [weak self] in self?.findIsland() }
         menuBar()

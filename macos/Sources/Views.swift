@@ -130,6 +130,17 @@ struct IslandRoot: View {
     }
 }
 
+struct ScaledIslandRoot: View {
+    @ObservedObject var model: IslandModel
+    var body: some View {
+        GeometryReader { geometry in
+            IslandRoot(model: model)
+                .frame(width: geometry.size.width / model.scale, height: geometry.size.height / model.scale)
+                .scaleEffect(model.scale, anchor: .topLeading)
+        }
+    }
+}
+
 struct MediaPage: View {
     @ObservedObject var model: IslandModel
     var body: some View {
