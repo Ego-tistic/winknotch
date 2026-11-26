@@ -143,7 +143,7 @@ func selfTest() {
     model.countdownEnd = nil; model.timerSeconds = "0"; model.startTimer(); precondition(model.countdownEnd == nil)
     model.apps = ["A", "B", "C"]; model.originalApps = model.apps; model.draggedApp = "A"; model.apps = ["B", "A", "C"]; model.cancelAppDrag()
     precondition(model.apps == ["A", "B", "C"])
-    let result = Players.script("return {\"title\", \"artist\", true, 12, 180, \"\"}")0.0
+    let result = Players.script("return {\"title\", \"artist\", true, 12, 180, \"\"}").0
     precondition(result?.numberOfItems == 6 && result?.atIndex(4)?.int32Value == 12)
     print("Duration, color contrast, two-second timer, canceled dock reorder, and AppleScript result checks passed")
 }

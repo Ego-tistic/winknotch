@@ -21,8 +21,12 @@ final class IslandModel: ObservableObject {
     @Published var tool: ClockTool = .clock
     @Published var stopwatchStart: Date?
     @Published var stopwatchElapsed = 0.0
-    @Published var timerHours = "0", timerMinutes = "0", timerSeconds = "0"
-    @Published var wakeHours = "7", wakeMinutes = "0", wakeSeconds = "0"
+    @Published var timerHours = "0"
+    @Published var timerMinutes = "0"
+    @Published var timerSeconds = "0"
+    @Published var wakeHours = "7"
+    @Published var wakeMinutes = "0"
+    @Published var wakeSeconds = "0"
     @Published var countdownEnd: Date?
     @Published var wakeDate: Date?
     @Published var ringing: String?
@@ -107,7 +111,7 @@ final class IslandModel: ObservableObject {
         RunLoop.main.add(ticker!, forMode: .common)
         if #available(macOS 13, *) { loginEnabled = SMAppService.mainApp.status == .enabled }
         queue.async {
-            let value = Players.script("output volume of (get volume settings)")0.0?.int32Value ?? 50
+            let value = Players.script("output volume of (get volume settings)").0?.int32Value ?? 50
             DispatchQueue.main.async { self.volume = Double(value) }
         }
     }
