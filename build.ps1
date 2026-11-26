@@ -29,9 +29,9 @@ if (Test-Path -LiteralPath "$metadata/Windows.Media.winmd") {
 $references | ForEach-Object { if (-not (Test-Path -LiteralPath $_)) { throw "Missing build reference: $_" } }
 $output = Join-Path $PSScriptRoot 'artifacts'
 New-Item -ItemType Directory -Force -Path $output | Out-Null
-$compilerArguments = @('/nologo', '/target:winexe', '/optimize+', "/out:$output/WinTide.exe")
+$compilerArguments = @('/nologo', '/target:winexe', '/optimize+', "/out:$output/WinKnotch.exe")
 $compilerArguments += @($references | ForEach-Object { "/r:$_" })
 $compilerArguments += Join-Path $PSScriptRoot 'src/BezelPlayer.cs'
 & $compiler @compilerArguments
 if ($LASTEXITCODE -ne 0) { throw 'Windows build failed.' }
-Write-Output "Built $output\WinTide.exe"
+Write-Output "Built $output\WinKnotch.exe"

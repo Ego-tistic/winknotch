@@ -1,6 +1,6 @@
 ﻿$ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName PresentationFramework
-$assembly = [Reflection.Assembly]::LoadFrom((Resolve-Path 'artifacts/WinTide.exe').Path)
+$assembly = [Reflection.Assembly]::LoadFrom((Resolve-Path 'artifacts/WinKnotch.exe').Path)
 $type = $assembly.GetType('PlayerWindow')
 $flags = [Reflection.BindingFlags]'Static,NonPublic'
 $control = $type.GetMethod('Control', $flags)

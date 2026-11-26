@@ -1,4 +1,4 @@
-﻿# WinTide
+﻿# WinKnotch
 
 A customizable Windows island for music, clocks, timers, and quick app launching.
 
@@ -16,7 +16,7 @@ Attach it to a screen edge, tuck it into a corner, or let it float. Expand it fo
 
 ## Run
 
-Download the Windows executable from [Releases](https://github.com/Ego-tistic/wintide/releases) and place it in a folder on your PC. Double-click it to launch.
+Download the Windows executable from [Releases](https://github.com/Ego-tistic/winknotch/releases) and place it in a folder on your PC. Double-click it to launch.
 
 The app is portable and unsigned. Settings are stored per Windows account under `HKCU\Software\BezelPlayer`. If startup at sign-in is enabled, keep the executable in the same location.
 
@@ -43,7 +43,7 @@ Build on 64-bit Windows with .NET Framework 4.8. No external NuGet packages are 
 .\build.ps1
 ```
 
-The executable is written to `artifacts\WinTide.exe`.
+The executable is written to `artifacts\WinKnotch.exe`.
 
 ## Verification
 

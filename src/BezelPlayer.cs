@@ -21,8 +21,8 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
-[assembly: System.Reflection.AssemblyTitle("WinTide")]
-[assembly: System.Reflection.AssemblyProduct("WinTide")]
+[assembly: System.Reflection.AssemblyTitle("WinKnotch")]
+[assembly: System.Reflection.AssemblyProduct("WinKnotch")]
 [assembly: System.Reflection.AssemblyDescription("A customizable media island for Windows")]
 [assembly: System.Reflection.AssemblyVersion("0.1.0.0")]
 [assembly: System.Reflection.AssemblyFileVersion("0.1.0.0")]
@@ -303,7 +303,7 @@ internal sealed class PlayerWindow : Window
 
     private PlayerWindow()
     {
-        Title = "WinTide";
+        Title = "WinKnotch";
         WindowStyle = WindowStyle.None;
         ResizeMode = ResizeMode.NoResize;
         AllowsTransparency = true;
@@ -368,7 +368,7 @@ internal sealed class PlayerWindow : Window
 
 
         panel.ContextMenu = new ContextMenu();
-        var quit = new MenuItem { Header = "Quit WinTide" };
+        var quit = new MenuItem { Header = "Quit WinKnotch" };
         quit.Click += delegate { Close(); };
         panel.ContextMenu.Items.Add(quit);
         var layers = new Grid();
@@ -3925,7 +3925,7 @@ internal sealed class PlayerWindow : Window
 
         settingsWindow = new Window
         {
-            Title = "WinTide Settings", Width = 378, Height = 631,
+            Title = "WinKnotch Settings", Width = 378, Height = 631,
             ResizeMode = ResizeMode.NoResize, WindowStartupLocation = WindowStartupLocation.CenterScreen,
             FontFamily = new FontFamily("Segoe UI"), FontSize = 13
         };
