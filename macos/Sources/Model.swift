@@ -264,6 +264,20 @@ final class IslandModel: ObservableObject {
 }
 
 extension NSColor {
+    static func hsv(_ hue: CGFloat, saturation: CGFloat, brightness: CGFloat) -> NSColor {
+        let h = hue.truncatingRemainder(dividingBy: 1) * 6
+        let c = brightness * saturation, x = c * (1 - abs(h.truncatingRemainder(dividingBy: 2) - 1)), m = brightness - c
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
+        switch h {
+        case ..<1: r = c; g = x
+        case ..<2: r = x; g = c
+        case ..<3: g = c; b = x
+        case ..<4: g = x; b = c
+        case ..<5: r = x; b = c
+        default: r = c; b = x
+        }
+        return NSColor(srgbRed: r + m, green: g + m, blue: b + m, alpha: 1)
+    }
     convenience init?(hex: String) {
         let value = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
         guard value.count == 6, let number = UInt32(value, radix: 16) else { return nil }

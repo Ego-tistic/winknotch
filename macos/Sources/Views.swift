@@ -357,7 +357,8 @@ struct ColorBlockPicker: View {
             ColorBlockRepresentable(color: $color).frame(height: 105).clipShape(RoundedRectangle(cornerRadius: 7))
             HStack { Text("Brightness").font(.caption); IslandSlider(value: $brightness, in: 0...1).onChange(of: brightness) { value in
                 guard let c = NSColor(color).usingColorSpace(.sRGB) else { return }
-                color = Color(NSColor(calibratedHue: c.hueComponent, saturation: c.saturationComponent, brightness: value, alpha: 1))
+                guard abs(Double(c.brightnessComponent) - value) > 0.0001 else { return }
+                color = Color(NSColor.hsv(c.hueComponent, saturation: c.saturationComponent, brightness: value))
             } }
             TextField("#526D9A", text: $hex, onCommit: { if let value = NSColor(hex: hex) { color = Color(value) } }).font(.system(size: 11, design: .monospaced))
         }.onAppear { sync() }.onChange(of: color) { _ in sync() }
@@ -379,7 +380,7 @@ final class ColorBlockNSView: NSView {
         let value = c.brightnessComponent
         let width = 128, height = 50
         guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: width * 4, bitsPerPixel: 32) else { return }
-        for y in 0..<height { for x in 0..<width { bitmap.setColor(NSColor(calibratedHue: CGFloat(x) / CGFloat(width), saturation: CGFloat(y) / CGFloat(height - 1), brightness: value, alpha: 1), atX: x, y: y) } }
+        for y in 0..<height { for x in 0..<width { bitmap.setColor(NSColor.hsv(CGFloat(x) / CGFloat(width), saturation: 1 - CGFloat(y) / CGFloat(height - 1), brightness: value), atX: x, y: y) } }
         bitmap.draw(in: bounds)
         let point = NSPoint(x: c.hueComponent * bounds.width, y: c.saturationComponent * bounds.height)
         let circle = NSBezierPath(ovalIn: NSRect(x: point.x - 5, y: point.y - 5, width: 10, height: 10))
@@ -389,7 +390,7 @@ final class ColorBlockNSView: NSView {
     override func mouseDragged(with event: NSEvent) { pick(event) }
     private func pick(_ event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil), c = color.usingColorSpace(.sRGB) ?? .white
-        let value = NSColor(calibratedHue: min(0.999, max(0, point.x / max(1, bounds.width))), saturation: min(1, max(0, point.y / max(1, bounds.height))), brightness: c.brightnessComponent, alpha: 1)
+        let value = NSColor.hsv(min(0.999, max(0, point.x / max(1, bounds.width))), saturation: min(1, max(0, point.y / max(1, bounds.height))), brightness: c.brightnessComponent)
         changed?(value)
     }
 }

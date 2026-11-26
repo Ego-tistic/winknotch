@@ -149,6 +149,9 @@ final class MacApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         position(animated: false)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+            if index == 2 && self.model.tint.hex != "#28959A" {
+                FileHandle.standardError.write(Data("Color picker changed the selected color while rendering\n".utf8)); exit(1)
+            }
             let folder = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("macos/build/previews")
             do {
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -175,6 +178,8 @@ func selfTest() {
     check(IslandModel.duration(-1) == "00:00:00", "Negative duration")
     check(NSColor(hex: "#28959A")?.hex == "#28959A", "Hex color round trip")
     check(NSColor(hex: "invalid") == nil, "Invalid hex color")
+    let teal = NSColor(hex: "#28959A")!.usingColorSpace(.sRGB)!
+    check(NSColor.hsv(teal.hueComponent, saturation: teal.saturationComponent, brightness: teal.brightnessComponent).hex == "#28959A", "Color block HSV round trip")
     let model = IslandModel()
     model.theme = "Custom"; model.customColor = Color(NSColor(hex: "#28959A")!); model.opacity = 0.53
     check(!model.lightSurface, "Transparent teal uses light text")
