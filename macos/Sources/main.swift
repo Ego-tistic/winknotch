@@ -129,22 +129,26 @@ final class MacApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
 }
 
 func selfTest() {
-    precondition(IslandModel.duration(3661) == "01:01:01")
-    precondition(IslandModel.duration(-1) == "00:00:00")
-    precondition(NSColor(hex: "#28959A")?.hex == "#28959A")
-    precondition(NSColor(hex: "invalid") == nil)
+    func check(_ condition: Bool, _ name: String) {
+        guard condition else { FileHandle.standardError.write(Data("FAILED: \(name)\n".utf8)); exit(1) }
+        print("PASS: \(name)")
+    }
+    check(IslandModel.duration(3661) == "01:01:01", "Duration formatting")
+    check(IslandModel.duration(-1) == "00:00:00", "Negative duration")
+    check(NSColor(hex: "#28959A")?.hex == "#28959A", "Hex color round trip")
+    check(NSColor(hex: "invalid") == nil, "Invalid hex color")
     let model = IslandModel()
     model.theme = "Custom"; model.customColor = Color(NSColor(hex: "#28959A")!); model.opacity = 0.53
-    precondition(!model.lightSurface, "Transparent teal must use light text")
+    check(!model.lightSurface, "Transparent teal uses light text")
     model.customColor = Color(NSColor(hex: "#D4EDFC")!); model.opacity = 1
-    precondition(model.lightSurface, "Opaque pale colors must use dark text")
+    check(model.lightSurface, "Opaque pale color uses dark text")
     model.timerHours = "0"; model.timerMinutes = "0"; model.timerSeconds = "2"; model.startTimer()
-    precondition((model.countdownEnd?.timeIntervalSinceNow ?? 0) > 1.5 && (model.countdownEnd?.timeIntervalSinceNow ?? 0) <= 2)
-    model.countdownEnd = nil; model.timerSeconds = "0"; model.startTimer(); precondition(model.countdownEnd == nil)
+    check((model.countdownEnd?.timeIntervalSinceNow ?? 0) > 1.5 && (model.countdownEnd?.timeIntervalSinceNow ?? 0) <= 2, "Two-second timer")
+    model.countdownEnd = nil; model.timerSeconds = "0"; model.startTimer(); check(model.countdownEnd == nil, "Zero timer rejected")
     model.apps = ["A", "B", "C"]; model.originalApps = model.apps; model.draggedApp = "A"; model.apps = ["B", "A", "C"]; model.cancelAppDrag()
-    precondition(model.apps == ["A", "B", "C"])
+    check(model.apps == ["A", "B", "C"], "Canceled app reordering")
     let result = Players.script("return {\"title\", \"artist\", true, 12, 180, \"\"}").0
-    precondition(result?.numberOfItems == 6 && result?.atIndex(4)?.int32Value == 12)
+    check(result?.numberOfItems == 6 && result?.atIndex(4)?.int32Value == 12, "AppleScript result parsing")
     print("Duration, color contrast, two-second timer, canceled dock reorder, and AppleScript result checks passed")
 }
 

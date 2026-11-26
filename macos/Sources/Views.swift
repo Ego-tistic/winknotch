@@ -13,11 +13,15 @@ struct IslandOutline: Shape {
         let radius: CGFloat = joined ? 13 : 25
         if !joined { return Path(roundedRect: rect, cornerRadius: radius) }
         var path = Path()
+        let shoulder: CGFloat = 8
         path.move(to: CGPoint(x: 0, y: 0)); path.addLine(to: CGPoint(x: rect.maxX, y: 0))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - radius))
-        path.addQuadCurve(to: CGPoint(x: rect.maxX - radius, y: rect.maxY), control: CGPoint(x: rect.maxX, y: rect.maxY))
-        path.addLine(to: CGPoint(x: radius, y: rect.maxY))
-        path.addQuadCurve(to: CGPoint(x: 0, y: rect.maxY - radius), control: CGPoint(x: 0, y: rect.maxY)); path.closeSubpath()
+        path.addQuadCurve(to: CGPoint(x: rect.maxX - shoulder, y: shoulder), control: CGPoint(x: rect.maxX - shoulder, y: 0))
+        path.addLine(to: CGPoint(x: rect.maxX - shoulder, y: rect.maxY - radius))
+        path.addQuadCurve(to: CGPoint(x: rect.maxX - shoulder - radius, y: rect.maxY), control: CGPoint(x: rect.maxX - shoulder, y: rect.maxY))
+        path.addLine(to: CGPoint(x: shoulder + radius, y: rect.maxY))
+        path.addQuadCurve(to: CGPoint(x: shoulder, y: rect.maxY - radius), control: CGPoint(x: shoulder, y: rect.maxY))
+        path.addLine(to: CGPoint(x: shoulder, y: shoulder))
+        path.addQuadCurve(to: .zero, control: CGPoint(x: shoulder, y: 0)); path.closeSubpath()
         return path
     }
 }
@@ -341,13 +345,13 @@ struct ColorBlockPicker: View {
         VStack(spacing: 7) {
             ColorBlockRepresentable(color: $color).frame(height: 105).clipShape(RoundedRectangle(cornerRadius: 7))
             HStack { Text("Brightness").font(.caption); Slider(value: $brightness, in: 0...1).onChange(of: brightness) { value in
-                guard let c = NSColor(color).usingColorSpace(.deviceRGB) else { return }
+                guard let c = NSColor(color).usingColorSpace(.sRGB) else { return }
                 color = Color(NSColor(calibratedHue: c.hueComponent, saturation: c.saturationComponent, brightness: value, alpha: 1))
             } }
             TextField("#526D9A", text: $hex, onCommit: { if let value = NSColor(hex: hex) { color = Color(value) } }).font(.system(size: 11, design: .monospaced))
         }.onAppear { sync() }.onChange(of: color) { _ in sync() }
     }
-    private func sync() { let c = NSColor(color).usingColorSpace(.deviceRGB) ?? .white; brightness = Double(c.brightnessComponent); hex = c.hex }
+    private func sync() { let c = NSColor(color).usingColorSpace(.sRGB) ?? .white; brightness = Double(c.brightnessComponent); hex = c.hex }
 }
 
 struct ColorBlockRepresentable: NSViewRepresentable {
@@ -360,7 +364,7 @@ final class ColorBlockNSView: NSView {
     var changed: ((NSColor) -> Void)?
     override var isFlipped: Bool { true }
     override func draw(_ dirtyRect: NSRect) {
-        let c = color.usingColorSpace(.deviceRGB) ?? .white
+        let c = color.usingColorSpace(.sRGB) ?? .white
         let value = c.brightnessComponent
         let width = 128, height = 50
         guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: width * 4, bitsPerPixel: 32) else { return }
@@ -373,7 +377,7 @@ final class ColorBlockNSView: NSView {
     override func mouseDown(with event: NSEvent) { pick(event) }
     override func mouseDragged(with event: NSEvent) { pick(event) }
     private func pick(_ event: NSEvent) {
-        let point = convert(event.locationInWindow, from: nil), c = color.usingColorSpace(.deviceRGB) ?? .white
+        let point = convert(event.locationInWindow, from: nil), c = color.usingColorSpace(.sRGB) ?? .white
         let value = NSColor(calibratedHue: min(0.999, max(0, point.x / max(1, bounds.width))), saturation: min(1, max(0, point.y / max(1, bounds.height))), brightness: c.brightnessComponent, alpha: 1)
         changed?(value)
     }

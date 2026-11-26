@@ -84,7 +84,7 @@ final class IslandModel: ObservableObject {
     var tint: NSColor { theme == "Custom" ? NSColor(customColor) : theme == "Light" ? NSColor(calibratedWhite: 0.96, alpha: 1) : NSColor(calibratedWhite: 0.045, alpha: 1) }
     var lightSurface: Bool {
         if theme != "Custom" { return theme == "Light" }
-        guard let c = tint.usingColorSpace(.deviceRGB) else { return false }
+        guard let c = tint.usingColorSpace(.sRGB) else { return false }
         func linear(_ v: CGFloat) -> Double { let x = Double(v) * opacity * opacity; return x <= 0.04045 ? x / 12.92 : pow((x + 0.055) / 1.055, 2.4) }
         return 0.2126 * linear(c.redComponent) + 0.7152 * linear(c.greenComponent) + 0.0722 * linear(c.blueComponent) > 0.179
     }
@@ -128,7 +128,7 @@ final class IslandModel: ObservableObject {
         guard value != expanded else { return }
         if value && track?.playing == true { page = .media }
         withAnimation(.easeInOut(duration: 0.38)) { expanded = value }
-        if !value { tabsOpen = false; editingApps = false }
+        if !value { tabsOpen = false; editingApps = false; if page == .settings { page = track?.playing == true ? .media : .clock } }
         resize?()
     }
     func select(_ value: IslandPage) { page = value; expanded = true; resize?() }
@@ -177,7 +177,7 @@ final class IslandModel: ObservableObject {
             var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, count: CGFloat = 0
             for y in stride(from: 0, to: bitmap.pixelsHigh, by: max(1, bitmap.pixelsHigh / 16)) {
                 for x in stride(from: 0, to: bitmap.pixelsWide, by: max(1, bitmap.pixelsWide / 16)) {
-                    guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB), color.alphaComponent > 0.5 else { continue }
+                    guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB), color.alphaComponent > 0.5 else { continue }
                     r += color.redComponent; g += color.greenComponent; b += color.blueComponent; count += 1
                 }
             }
@@ -265,7 +265,7 @@ extension NSColor {
     convenience init?(hex: String) {
         let value = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
         guard value.count == 6, let number = UInt32(value, radix: 16) else { return nil }
-        self.init(calibratedRed: CGFloat((number >> 16) & 255) / 255, green: CGFloat((number >> 8) & 255) / 255, blue: CGFloat(number & 255) / 255, alpha: 1)
+        self.init(srgbRed: CGFloat((number >> 16) & 255) / 255, green: CGFloat((number >> 8) & 255) / 255, blue: CGFloat(number & 255) / 255, alpha: 1)
     }
     var hex: String {
         let c = usingColorSpace(.deviceRGB) ?? .white
